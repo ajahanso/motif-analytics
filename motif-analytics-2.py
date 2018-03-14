@@ -33,7 +33,7 @@ room2users = defaultdict(set)
 
 #going through each row and then using a dict for mapping
 #attempting to aggregate data so that you can query by user id and by room
-def iterateRows(data, ifUser, userID):
+def iterateRows(data, ifUser, userID, startTime, endTime):
 	count_int = int(0)
 	count = 0
 	count_int_2 = int(0)
@@ -47,21 +47,26 @@ def iterateRows(data, ifUser, userID):
 			if row["user-id"] == userID:
 				#capture user URLs, avg time per session, number of rooms total
 				#captureUser(row, userInfo)
-				if row["method"] == "add-session":
-					count_int += 1
-					if row["origin"] not in userURLs:
-						userURLs[row["origin"]] = 1
-					else:
-						userURLs[row["origin"]] = userURLs[row["origin"]] + 1
-					print [row["method"]]
-					print "\t" + str([row["room-id"], row["createdAt"], row["origin"]])
-				else:
-					print [row["method"]]
-					print "\t" + str([row["createdAt"]])
-		print "Total URLs visited: " + "\n\t" + str(count_int) 
-		print "Top URLs visited by rank: " + "\n\t" + ("\n\t".join(sorted(userURLs, key=userURLs.get, reverse=True)))
-				
-		
+				count_int = individualUser(row, count_int, userURLs)
+	elif ifUser == "true-1":	#start time to present
+		startTime = datetime.strptime(startTime, "%Y-%m-%d")
+		for row in data:
+			if row["user-id"] == userID:
+				if generateTimeStamp(row["createdAt"]) > startTime:
+					print generateTimeStamp(row["createdAt"])
+					print startTime
+					count_int = individualUser(row, count_int, userURLs)
+	else: #start time to end time
+		startTime = datetime.strptime(startTime, "%Y-%m-%d")
+		endTime = datetime.strptime(endTime, "%Y-%m-%d")
+		for row in data:
+			if row["user-id"] == userID:
+				if generateTimeStamp(row["createdAt"]) > startTime:
+					if generateTimeStamp(row["createdAt"]) < endTime:
+						count_int = individualUser(row, count_int, userURLs)
+	print "Total URLs visited: " + "\n\t" + str(count_int) 
+	print "Top URLs visited by rank: " + "\n\t" + ("\n\t".join(sorted(userURLs, key=userURLs.get, reverse=True)))
+	
 	#print "num add sessions: "
 	#print count_int
 	#print "num close room: "
@@ -69,7 +74,30 @@ def iterateRows(data, ifUser, userID):
 	#print "total count: "
 	#print count
 	return
+	
+def individualUser(row, count_int, userURLs):
+	if row["method"] == "add-session":
+		count_int += 1
+		if row["origin"] not in userURLs:
+			userURLs[row["origin"]] = 1
+		else:
+			userURLs[row["origin"]] = userURLs[row["origin"]] + 1
+		print [row["method"]]
+		print "\t" + str([row["room-id"], row["createdAt"], row["origin"]])
+	else:
+		print [row["method"]]
+		print "\t" + str([row["createdAt"]])
+	return count_int
 
+def generateTimeStamp(timeStamp):
+	#time = timeStamp[11:13] + '.' + timeStamp[14:16]
+	#time = float(time)
+	#timeStamp example: 2018-02-28T09:04:11.310000
+	timeStamp = timeStamp[0:10] 
+	fmt = '%Y-%m-%d'
+	#print timeStamp
+	d1 = datetime.strptime(timeStamp, fmt)
+	return d1
 
 #by iterating through the data one time, we should capture all of the relevant 
 #information into a dictionary
@@ -272,9 +300,14 @@ def main():
 	#for item in data['query_result']:
 		#print item		
 	if args[1] == "user-dump":
-		iterateRows(data['query_result']['data']['rows'], "true", args[2])
+		if len(args) > 4: #this is start and end time
+			iterateRows(data['query_result']['data']['rows'], "true-2", args[2], args[3], args[4])
+		elif len(args) > 3:#this is start time to present
+			iterateRows(data['query_result']['data']['rows'], "true-1", args[2], args[3], "present")
+		else: #this is for all time
+			iterateRows(data['query_result']['data']['rows'], "true", args[2], "0", "0")
 	else:
-		iterateRows(data['query_result']['data']['rows'], "false", "0")
+		iterateRows(data['query_result']['data']['rows'], "false", "0", "0", "0")
 	#print room2report
 	#working with args
 	
