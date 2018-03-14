@@ -33,13 +33,35 @@ room2users = defaultdict(set)
 
 #going through each row and then using a dict for mapping
 #attempting to aggregate data so that you can query by user id and by room
-def iterateRows(data):
+def iterateRows(data, ifUser, userID):
 	count_int = int(0)
 	count = 0
 	count_int_2 = int(0)
-	for row in data:
-		count += 1
-		count_int, count_int_2 = decodeRow(row, count_int, count_int_2)
+	userURLs = defaultdict(int)
+	if ifUser == "false":
+		for row in data:
+			count += 1
+			count_int, count_int_2 = decodeRow(row, count_int, count_int_2)
+	elif ifUser == "true":
+		for row in data:
+			if row["user-id"] == userID:
+				#capture user URLs, avg time per session, number of rooms total
+				#captureUser(row, userInfo)
+				if row["method"] == "add-session":
+					count_int += 1
+					if row["origin"] not in userURLs:
+						userURLs[row["origin"]] = 1
+					else:
+						userURLs[row["origin"]] = userURLs[row["origin"]] + 1
+					print [row["method"]]
+					print "\t" + str([row["room-id"], row["createdAt"], row["origin"]])
+				else:
+					print [row["method"]]
+					print "\t" + str([row["createdAt"]])
+		print "Total URLs visited: " + "\n\t" + str(count_int) 
+		print "Top URLs visited by rank: " + "\n\t" + ("\n\t".join(sorted(userURLs, key=userURLs.get, reverse=True)))
+				
+		
 	#print "num add sessions: "
 	#print count_int
 	#print "num close room: "
@@ -47,6 +69,7 @@ def iterateRows(data):
 	#print "total count: "
 	#print count
 	return
+
 
 #by iterating through the data one time, we should capture all of the relevant 
 #information into a dictionary
@@ -243,16 +266,19 @@ def rankByTime(desiredLength):
 	return returnList
 
 def main():
+	args = sys.argv
 	response = requests.get(API_URL)
 	data = response.json()
 	#for item in data['query_result']:
 		#print item		
-	iterateRows(data['query_result']['data']['rows'])
+	if args[1] == "user-dump":
+		iterateRows(data['query_result']['data']['rows'], "true", args[2])
+	else:
+		iterateRows(data['query_result']['data']['rows'], "false", "0")
 	#print room2report
 	#working with args
 	
 #def dont():
-	args = sys.argv
 	if args[1] == "graph":
 		if args[2] == "users-per-room":
 			pDict = countPeoplePerRoom()
@@ -276,6 +302,8 @@ def main():
 	elif args[1] == "print":
 		if len(args) > 3:
 			desiredLength = int(args[3])
+		else:
+			print("please input a desired list length")
 		if args[2] == "domains-by-rank":
 			a_list = rankByAppearance("domains", desiredLength)
 			printList(a_list)
@@ -335,7 +363,7 @@ def main():
 				#print total_set
 			else:
 				print "please submit a valid query, the options are: "
-				print "total-time, room-count, room-ids, average-time, associated-ids"
+				print "total-time, room-count, room-ids, average-time"
 		else:
 			print "ensure that you type the correct amount of arguments in the format:"
 			print "user-query query-type user-id"
